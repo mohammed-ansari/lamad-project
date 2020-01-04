@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" type="text/css" href="css/styles.css">
+    <script src="js/distance.js"></script>
+    <script src="js/http.js"></script>
+    <script src="js/controls.js"></script>
+
+
+    <script async defer
+        src="https://maps.googleapis.com/maps/api/js?key={{YourAPIKey}}&callback=initMap">
+        </script>
+    <script>
+        var map, infoWindow, difficultyLevel = 1,
+            player_marker;
+        var GOOGLE_NEAREST_ROADS_SERVER = "https://roads.googleapis.com/v1/nearestRoads";
+        var GOOGLE_API_KEY = "{{YourAPIKey}}";
+        var MARKER_SIZE = 40;
+        var g_treasures;
+        var treasures = new Array();
+        var treasureArea;
+        var circles;
+        var treasurePointTreshold;
+        var totalScore = 0;
+        var countDownDate;
+        var treasureRadius = 20;
+        var targetScore = 70;
+
+
+        // Initialize and add the map
+        function initMap() {
+            if (!document.getElementById("scoreDialog").classList.contains('hidden')) {
+                location.reload();
+            }
+            const initialPosition = {
+                lat: 62.618691,
+                lng: 29.706413
+            };
+            map = createMap(initialPosition);
+            var target = document.getElementById("targetScore");
+            target.innerHTML = "Target:"+targetScore;
+            map.controls[google.maps.ControlPosition.LEFT_BOTTOM].push(target);
+            
+            var playerIcon = createIcon("./img/player2.png");
+            player_marker = createMarker({
+                map,
+                position: initialPosition,
+                icon: playerIcon
+            });
+            player_marker.addListener('dragend', handleDragEndEvent);
+            infoWindow = createInfoWindow();
+            getPlayerPosition();
+            watchPlayerPosition();
+        }
+
+        //drag event added for player marker to simualte the game and check whether treasure disappears if player is in the radius of treasure
+        function handleDragEndEvent(location) {
+
+            var treasureIndex = checkTreasureArea(location.latLng);
+            if (!(treasureIndex == -1)) {
+                if (g_treasures[treasureIndex].getTitle() == "powerup") {
+                    addMinutesToDatePowerUp(5);
+                }
+                removeMarkerByIndex(treasureIndex);
+                removeCircleByIndex(treasureIndex);
+                showMarkers();
+                showCircles();
+                document.getElementById('score').innerHTML = "Score:" + incrementScore(treasureIndex);
+                if (totalScore >= targetScore) {
+                    document.getElementById("scoreDialog").classList.remove('hidden');
+                    document.getElementById("finalScore").innerHTML = "You have scored " + totalScore + " points!";
+                }
+            }
+        }
+
+        function createIcon(imageUrl) {
+            return {
+                url: imageUrl,
+                size: new google.maps.Size(MARKER_SIZE, MARKER_SIZE),
+                scaledSize: new google.maps.Size(MARKER_SIZE, MARKER_SIZE),
+                origin: new google.maps.Point(0, 0),
+                anchor: new google.maps.Point(MARKER_SIZE / 2, MARKER_SIZE / 2)
+            }
+        }
+
+        function removeMarkerByIndex(markerIndex) {
+            g_treasures[markerIndex].setMap(null);
+        }
+
+        function removeCircleByIndex(circleIndex) {
+            circles[circleIndex].setMap(null);
+        }
+
+        function incrementScore(index) {
+            totalScore = totalScore + treasures[index]["points"];
+            return totalScore;
+        }
+
+        function setMarkersOnMap(map) {
+            for (var i = 0; i < g_treasures.length; i++) {
+                if (g_treasures[i].getMap() != null) {
+                    g_treasures[i].setMap(map);
+                } else {
+                    g_treasures[i].setMap(null);
+                }
+            }
+        }
+
+        function setCirclesOnMap(map) {
+            for (var i = 0; i < circles.length; i++) {
+                if (circles[i].getMap() != null) {
+                    circles[i].setMap(map);
+                } else {
+                    circles[i].setMap(null);
+                }
+            }
+        }
+
+        function showMarkers() {
+            setMarkersOnMap(map);
+        }
+
+        function showCircles() {
+            setCirclesOnMap(map);
+        }
+
+        //create a new map
+        const createMap = ({
+            lat,
+            lng
+        }) => {
+            return new google.maps.Map(document.getElementById('map'), {
+                center: {
+                    lat,
+                    lng
+                },
+                zoom: 15,
+                mapTypeControl: false,
+                streetViewControl: false,
+                fullscreenControl: false
+            });
+        };
+
+        //create a marker
+        const createMarker = ({
+            map,
+            position,
+            icon
+        }) => {
+
+            return new google.maps.Marker({
+                map,
+                position,
+                icon,
+                draggable: true,
+                zIndex: 1,
+
+            });
+        };
+
+        //create a info window
+        const createInfoWindow = () => {
+            return new google.maps.InfoWindow;
+        }
+
+        //get current position
+        function getPlayerPosition() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function (position) {
+                    var pos = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    };
+                    map.setCenter(pos);
+                    player_marker.setPosition(pos);
+                }, function () {
+                    handleLocationError(true, infoWindow, map.getCenter());
+                })
+            } else {
+                handleLocationError(false, infoWindow, map.getCenter());
+
+            }
+        }
+
+        //watch player's position
+        function watchPlayerPosition() {
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition(function (position) {
+                    document.getElementById("menuDialog").classList.remove('hidden');
+                    var pos = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    };
+
+                    map.setCenter(pos);
+                    player_marker.setPosition(pos);
+                    if (treasureArea) {
+                        var location = {
+                            latLng: pos
+                        }
+                        handleDragEndEvent(location);
+                    }
+                }, function () {
+                    handleLocationError(true, infoWindow, map.getCenter());
+                }, {
+                    enableHighAccuracy: true,
+                    timeout: 5000,
+                    maximumAge: 0
+                })
+            } else {
+                handleLocationError(false, infoWindow, map.getCenter());
+
+            }
+        }
+
+        //display countdown timer
+        function displayCountDownTimer(date, minutes) {
+            countDownDate = addMinutesToDate(new Date(), 5);
+            var timer = setInterval(function () {
+                var distance = countDownDate.getTime() - new Date().getTime();
+                var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                var seconds = Math.floor((distance % (1000 * 60)) / 1000);
+                document.getElementById("inGameTime").innerHTML = minutes + "m " + seconds + "s ";
+
+                if (distance < 0 || totalScore >= targetScore) {
+                    clearInterval(timer);
+                    document.getElementById("inGameTime").innerHTML = "Expired";
+                    document.getElementById("scoreDialog").classList.remove('hidden');
+                }
+
+            }, 1000)
+        }
+
+        //add minutes to date
+        function addMinutesToDate(date, minutes) {
+            return new Date(date.getTime() + minutes * 60000);
+        }
+
+        function addMinutesToDatePowerUp(minutes) {
+            countDownDate = new Date(countDownDate.getTime() + minutes * 60000);
+        }
+
+        //close dialog box on the button click using button class
+        function closeDialogByButtonClass(buttonClass, modalId, display) {
+            var button = document.getElementsByClassName(buttonClass)[0];
+            button.on = function () {
+                document.getElementById(modalId).style.display = display;
+            }
+
+        }
+
+        //intialize all treasure points
+        function initializeTreasures() {
+            if (difficultyLevel == 1) {
+                no_treasures = 20;
+                treasurePointTreshold = 15;
+                threshold = 50;
+                no_power_ups = 5;
+            } else if (difficultyLevel == 2) {
+                no_treasures = 15;
+                treasurePointTreshold = 20;
+                threshold = 100;
+                no_power_ups = 4;
+            } else {
+                no_treasures = 10;
+                treasurePointTreshold = 25;
+                threshold = 130;
+                no_power_ups = 3;
+            }
+
+            bbSize = 1;
+
+            for (var i = 0; i < no_treasures; i++) {
+                //1 degree 111 km
+                points = Math.floor((Math.random() * treasurePointTreshold));
+                do {
+                    var lat = player_marker.getPosition().lat() + (bbSize / 2) * (Math.random() - 0.5) / 111;
+                    var lng = player_marker.getPosition().lng() + (bbSize / 2) * (Math.random() - 0.5) / (111 * Math.cos(degToRad(lat)));
+
+                    var treasure = {
+                        lat: lat,
+                        lng: lng,
+                        points: points,
+                        type: "treasure"
+                    }
+
+                } while (distanceToNearestPoint(treasure, treasures) < threshold);
+
+                treasures.push(treasure);
+            }
+
+            for (var i = 0; i < no_power_ups; i++) {
+                //1 degree 111 km
+                points = 0;
+                do {
+                    var lat = player_marker.getPosition().lat() + (bbSize / 2) * (Math.random() - 0.5) / 111;
+                    var lng = player_marker.getPosition().lng() + (bbSize / 2) * (Math.random() - 0.5) / (111 * Math.cos(degToRad(lat)));
+
+                    var treasure = {
+                        lat: lat,
+                        lng: lng,
+                        points: points,
+                        type: "powerup"
+                    }
+
+                } while (distanceToNearestPoint(treasure, treasures) < threshold);
+
+                treasures.push(treasure);
+            }
+
+            getSnappedPoints(treasures);
+
+        }
+
+        //relocate treasure points on road and place them on map
+        function getSnappedPoints(points) {
+            var pointsString = ""
+            for (var i = 0; i < points.length; i++) {
+                if (i > 0) {
+                    pointsString += "|";
+                }
+                pointsString += points[i]["lat"] + "," + points[i]["lng"];
+            }
+
+            var request = GOOGLE_NEAREST_ROADS_SERVER + "?points=" + pointsString + "&key=" + GOOGLE_API_KEY;
+
+            httpGetAsync(request, function (stringOutput) {
+                var obj = JSON.parse(stringOutput);
+                console.log(obj);
+
+                for (var i = 0; i < obj["snappedPoints"].length; i++) {
+                    points[obj["snappedPoints"][i]["originalIndex"]]["lat"] =
+                        obj["snappedPoints"][i]["location"]["latitude"];
+
+                    points[obj["snappedPoints"][i]["originalIndex"]]["lng"] =
+                        obj["snappedPoints"][i]["location"]["longitude"];
+                }
+                drawPoints(points, map);
+                handleMap();
+            });
+        }
+
+        function distanceToNearestPoint(location, points) {
+            if (points.length == 0) {
+                return 999999;
+            }
+            var minDist = -1;
+            for (var i = 0; i < points.length; i++) {
+                var dist = getDistance(location, points[i]);
+                if (dist < minDist || minDist == -1) {
+                    minDist = dist;
+                }
+            }
+            return minDist;
+        }
+
+        //set the difficulty level of game
+        function setDifficultyLevel(displayValue, difficultyLevel) {
+            document.getElementById("menuDialog").style.display = displayValue;
+            this.difficultyLevel = difficultyLevel;
+            initializeTreasures();
+            displayCountDownTimer();
+        }
+
+        //show message in case of location error
+        function handleLocationError(geolocationStatus, infoWindow, pos) {
+            infoWindow.setPosition(pos);
+            infoWindow.setContent(geolocationStatus ?
+                'Error: The Geolocation service failed.' :
+                'Error: Your browser doesn\'t support geolocation.');
+            infoWindow.open(map);
+        }
+
+        //draw treasure points on map
+        function drawPoints(points, map) {
+            g_treasures = new Array();
+            circles = new Array();
+            for (var i = 0; i < points.length; i++) {
+
+                var circleColor = 'rgb(255,255,0)';
+
+                var icon = createIcon("./img/treasure.png");
+
+                if (points[i]["type"] == "powerup") {
+
+                    circleColor = 'rgb(0,255,0)';
+                    icon = createIcon("./img/powerup.png");
+
+                }
+
+                var marker = new google.maps.Marker({
+                    icon: icon,
+                    position: points[i],
+                    title: points[i]["type"],
+                    map: map
+                });
+
+                treasureArea = new google.maps.Circle({
+                    strokeColor: circleColor,
+                    strokeOpacity: 0.8,
+                    strokeWeight: 2,
+                    fillColor: circleColor,
+                    fillOpacity: 0.35,
+                    map: map,
+                    center: points[i],
+                    radius: treasureRadius
+                });
+
+                // treasureArea.contains = function (latLng) {
+                //     for (var i = 0; i < treasures.length; i++) {
+                //         if (getDistance(treasures[i], latLng) <= this.getRadius()) {
+                //             return i;
+                //         }
+                //     }
+                //     return -1;
+                // }
+
+                circles.push(treasureArea);
+
+                marker["special"] = points[i]["special"];
+
+                g_treasures.push(marker);
+            }
+        }
+
+        function checkTreasureArea(playerLocation){
+            for (var i = 0; i < treasures.length; i++) {
+                        if (getDistance(treasures[i], playerLocation) <= treasureRadius) {
+                            return i;
+                        }
+                    }
+                    return -1;
+        }
+    </script>
+</head>
+
+<body>
+    <div id="menuDialog" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="inline-block"><img class="logo" src="./img/logo.png"></div>
+                <div class="inline-block">
+                    <h2>Map Gold Miner</h2>
+                </div>
+            </div>
+            <br><br>
+            <p class="menuText">Start your Game</p>
+            <div id="menuControls">
+                <button class="menuButton menuText" onclick="setDifficultyLevel('none','1')">
+                    Easy
+                </button>
+                <button class="menuButton menuText" onclick="setDifficultyLevel('none','2')">
+                    Medium
+                </button>
+                <button class="menuButton menuText" onclick="setDifficultyLevel('none','3')">
+                    Hard
+                </button>
+            </div>
+        </div>
+    </div>
+    <div id="map"></div>
+    <div id="inGameTime" class="gameText">
+        00:00
+    </div>
+    <div id="score" class="gameText">
+        Score:0
+    </div>
+    <div id="targetScore" class="gameText">
+        Target:0
+    </div>
+    <div id="scoreDialog" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="inline-block"><img class="logo" src="./img/logo.png"></div>
+                <div class="inline-block">
+                    <h2>Map Gold Miner</h2>
+                </div>
+            </div>
+            <p class="menuText">Game Over!!!</p>
+            <p id="finalScore" class="menuText"></p>
+            <p class="menuText"> Want to play again?</p>
+            <button class="menuButton menuText" onclick="initMap()">Restart</button>
+
+        </div>
+    </div>
+</body>
+
+</html>

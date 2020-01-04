@@ -1,0 +1,154 @@
+       #menuDialog.hidden {
+            display: none;
+        }
+
+        #scoreDialog.hidden {
+            display: none;
+        }       
+       
+       #map {
+            height: 100%;
+            display: block;
+        }
+
+        #inGameTime {
+            position: fixed;
+            top: 0px;
+            left: 0px;
+            padding: 5px;
+        }
+
+        #score {
+            position: fixed;
+            top: 0px;
+            right: 50px;
+            padding: 5px;
+        }
+
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* The Modal (background) */
+        .modal {
+            border: none;
+            display: block;
+            position: fixed;
+            z-index: 1;
+            padding-top: 100px;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgb(0, 0, 0);
+            background-color: rgba(0, 0, 0, 0.4);
+            box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+            -webkit-animation-name: animatetop;
+            -webkit-animation-duration: 0.8s;
+            animation-name: animatetop;
+            animation-duration: 0.8s;
+        }
+
+        /* Modal Animation */
+        @-webkit-keyframes animatetop {
+            from {
+                top: -300px;
+                opacity: 0
+            }
+
+            to {
+                top: 0;
+                opacity: 1
+            }
+        }
+
+        @keyframes animatetop {
+            from {
+                top: -300px;
+                opacity: 0
+            }
+
+            to {
+                top: 0;
+                opacity: 1
+            }
+        }
+
+        /* Modal Content */
+        .modal-content {
+            background-color: #fefefe;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 30%;
+            height: 50%;
+            text-align: center;
+        }
+
+
+        .modal-header {
+            padding: 2px 16px;
+            background-color: rgb(255, 136, 0);
+            color: rgb(255, 255, 255);
+            font-family: "Comic Sans MS", cursive, sans-serif;
+            font-size: 20px;
+            letter-spacing: 0px;
+            word-spacing: 2px;
+            font-weight: 900;
+            text-decoration: none;
+            font-style: normal;
+            font-variant: small-caps;
+            text-transform: uppercase;
+            border-radius: 8px;
+        }
+
+        .menuText {
+            font-family: "Comic Sans MS", cursive, sans-serif;
+            font-size: 15px;
+            letter-spacing: 0px;
+            word-spacing: 2px;
+            font-weight: 900;
+            text-decoration: none;
+            font-style: normal;
+            font-variant: small-caps;
+            text-transform: uppercase;
+        }
+
+        .gameText {
+            font-family: "Comic Sans MS", cursive, sans-serif;
+            font-size: 7vmin;
+            letter-spacing: 0px;
+            word-spacing: 2px;
+            font-weight: 900;
+            text-decoration: none;
+            font-style: normal;
+            font-variant: small-caps;
+            text-transform: uppercase;
+        }
+
+        .menuButton {
+            background-color: rgb(255, 136, 0);
+            border: none;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 8px;
+        }
+
+        .inline-block{
+            display: inline-block;
+        }
+
+        .logo{
+            position: relative;
+            top: 25px;
+        }
